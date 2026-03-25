@@ -1,0 +1,75 @@
+#+TITLE: occult.el
+
+[[https://github.com/agzam/occult.el/actions/workflows/run-tests.yml][https://github.com/agzam/occult.el/actions/workflows/run-tests.yml/badge.svg]]
+
+#+begin_quote
+Occult - from Latin /occultus/ - "hidden, secret"
+#+end_quote
+
+* What
+
+It lets you collapse any buffer region into a single-line summary using overlays. The hidden text remains fully present in the buffer - accessible to ~buffer-string~, org-export, copy/kill, and LLM context extraction.
+
+The first line of the folded region stays visible and navigable as regular text. Everything after it is hidden behind an ellipsis.
+
+* Why
+
+Sometimes you want to visually declutter a buffer without losing content. LLM chat sessions get verbose, org documents accumulate boilerplate, eshell output floods the screen. Existing folding mechanisms (outline-mode, org-cycle, hideshow) are structure-aware - they fold headings, blocks, or defuns. They can't fold an arbitrary selected region.
+
+Occult works on any region in any buffer - including read-only and special-mode buffers. The hidden text is never removed from the buffer, so tools that read buffer content (LLM packages like gptel, eca, agent-shell; org-export; copy/kill) see the full unfolded text.
+
+* How
+
+** Install
+
+*** With straight.el / use-package
+
+#+begin_src emacs-lisp
+(use-package occult
+  :straight (:host github :repo "agzam/occult.el"))
+#+end_src
+
+*** Manual
+
+Clone the repo and add it to ~load-path~:
+
+#+begin_src emacs-lisp
+(add-to-list 'load-path "/path/to/occult.el")
+(require 'occult)
+#+end_src
+
+** Usage
+
+Two commands:
+
+- ~occult-toggle~ - select a region and call it to collapse. Call it again with point on a fold to expand. TAB also toggles when point is on a fold.
+- ~occult-reveal-all~ - expand all folds in the current buffer.
+
+Bind them however you like:
+
+#+begin_src emacs-lisp
+(global-set-key (kbd "C-c z") #'occult-toggle)
+(global-set-key (kbd "C-c Z") #'occult-reveal-all)
+#+end_src
+
+** Customization
+
+| Variable                    | Default | Description                            |
+|-----------------------------+---------+----------------------------------------|
+| ~occult-indicator~          | ~"⨁ "~ | Prefix glyph for the fold summary      |
+| ~occult-ellipsis~           | ~"..."~ | Suffix shown where text is hidden      |
+| ~occult-summary-max-length~ | ~50~    | Max visible chars from the first line  |
+| ~occult-auto-reveal~        | ~nil~   | Auto-reveal mode: nil, echo, or expand |
+
+** Search integration
+
+Emacs isearch (~C-s~ / ~C-r~) finds text inside folds. Matches are temporarily revealed during search and permanently expanded if isearch exits inside a fold.
+
+Evil users: ~/~ and ~?~ (~evil-ex-search-forward~ / ~evil-ex-search-backward~) are also supported. When a search lands inside a fold, it is temporarily revealed and re-hidden when point moves away.
+
+* [[file:changelog.org][Changelog]].
+
+* License
+Copyright © 2026 Ag Ibragimov
+
+GPL-3.0-or-later. See [[file:LICENSE][LICENSE]].

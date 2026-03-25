@@ -1,0 +1,18 @@
+#+TITLE: occult.el changelog
+#+AUTHOR: Ag Ibragimov
+
+Changes to the project, following Keep a Changelog conventions.
+
+* [0.1.0] - 2026-03-25
+
+** Added
+- ~occult-toggle~ command - collapse region or expand fold at point
+- ~occult-reveal-all~ command - expand all folds in buffer
+- ~occult-hide-region~ programmatic API
+- Two-overlay fold structure: first line stays visible and navigable
+- Isearch integration with temporary and permanent reveal
+- Evil ex-search integration (optional, loaded lazily)
+- ~revert-buffer~ persistence via content hash verification
+- ~occult-auto-reveal~ option (nil, echo, expand)
+- Customizable indicator, ellipsis, and summary length
+- Works in read-only and special-mode buffers
