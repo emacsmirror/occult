@@ -75,7 +75,7 @@
     (occult-test-with-buffer "Hello\nWorld\n"
       (occult-hide-region 1 13)
       (let ((parent (occult--overlay-at-point)))
-        (expect (overlay-get parent 'before-string) :to-match "⨁"))))
+        (expect (overlay-get parent 'before-string) :to-match "📎"))))
 
   (it "shows ellipsis in body before-string"
     (occult-test-with-buffer "Hello\nWorld\n"

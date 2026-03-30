@@ -44,7 +44,7 @@
   :group 'convenience
   :prefix "occult-")
 
-(defcustom occult-indicator "⨁ "
+(defcustom occult-indicator "📎 "
   "Prefix string displayed before the summary text of a fold."
   :type 'string)
 
@@ -143,6 +143,7 @@ Returns the parent overlay."
     ;; Parent overlay - spans the whole fold, provides keymap and ID
     (overlay-put parent 'occult t)
     (overlay-put parent 'occult-body body)
+    (overlay-put parent 'face 'occult-summary)
     (overlay-put parent 'before-string indicator)
     (overlay-put parent 'keymap occult-overlay-map)
     (overlay-put parent 'help-echo "Press TAB to expand")
