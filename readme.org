@@ -67,6 +67,46 @@ Emacs isearch (~C-s~ / ~C-r~) finds text inside folds. Matches are temporarily r
 
 Evil users: ~/~ and ~?~ (~evil-ex-search-forward~ / ~evil-ex-search-backward~) are also supported. When a search lands inside a fold, it is temporarily revealed and re-hidden when point moves away.
 
+** Evil fold bindings (=zc= / =zo= / =za=)
+
+The native evil fold commands can be advised to work with occult. When a visual selection or occult fold is present, they delegate to occult; otherwise they fall through to default behavior.
+
+- =zc= / =zC= in visual state - create an occult fold from the selection
+- =zo= / =zO= on an occult fold - reveal it
+- =za= - toggle: create from visual selection or reveal existing fold
+- =zR= - also reveals all occult folds alongside native folds
+
+#+begin_src emacs-lisp
+(with-eval-after-load 'evil
+  (dolist (fn '(evil-close-fold evil-close-fold-rec))
+    (advice-add fn :around
+                (lambda (fn &rest args)
+                  (if (evil-visual-state-p)
+                      (occult-hide-region (region-beginning) (region-end))
+                    (apply fn args)))))
+
+  (dolist (fn '(evil-open-fold evil-open-fold-rec))
+    (advice-add fn :around
+                (lambda (fn &rest args)
+                  (if (cl-find-if (lambda (o) (overlay-get o 'occult))
+                                  (overlays-at (point)))
+                      (occult-toggle)
+                    (apply fn args)))))
+
+  (advice-add 'evil-open-folds :around
+              (lambda (fn &rest args)
+                (apply fn args)
+                (occult-reveal-all)))
+
+  (advice-add 'evil-toggle-fold :around
+              (lambda (fn &rest args)
+                (if (or (evil-visual-state-p)
+                        (cl-find-if (lambda (o) (overlay-get o 'occult))
+                                    (overlays-at (point))))
+                    (occult-toggle)
+                  (apply fn args)))))
+#+end_src
+
 * [[file:changelog.org][Changelog]].
 
 * License
