@@ -28,6 +28,10 @@
   "Get the body overlay associated with PARENT."
   (overlay-get parent 'occult-body))
 
+(defun occult-test--head-overlay (parent)
+  "Get the head overlay associated with PARENT."
+  (overlay-get parent 'occult-head))
+
 ;;; Visible end calculation
 
 (describe "occult--visible-end"
@@ -43,6 +47,22 @@
   (it "does not exceed end"
     (occult-test-with-buffer "Hi\n"
       (expect (occult--visible-end 1 3) :to-equal 3))))
+
+
+;;; Trim leading whitepace
+
+(describe "occult--leading-whitespace"
+  (it "does nothing for not leading whitespace"
+    (occult-test-with-buffer "line with 17 char"
+      (expect (occult--leading-whitespace 1 18) :to-be 1)))
+
+  (it "gives first char that is not whitespace"
+    (occult-test-with-buffer " \n\r\tline with 21 char"
+      (expect (occult--leading-whitespace 1 22) :to-be 5)))
+
+  (it "gived END when there is only whitespace"
+    (occult-test-with-buffer " \n\r\t"
+      (expect (occult--leading-whitespace 1 5) :to-be 5))))
 
 ;;; Overlay creation - two-overlay structure
 
@@ -106,7 +126,31 @@
     (occult-test-with-buffer "Read only content\n"
       (setq buffer-read-only t)
       (occult-hide-region 1 19)
-      (expect (occult-test--fold-count) :to-equal 1))))
+      (expect (occult-test--fold-count) :to-equal 1)))
+
+  (it "creates a head overlay for leading whitespace"
+    (occult-test-with-buffer " \t\r\nLine 1\nLine 2\nLine 3\n"
+      (occult-hide-region 1 26)
+      (let* ((parent (occult--overlay-at-point))
+             (head (occult-test--head-overlay parent)))
+        (expect head :to-be-truthy)
+        (expect (overlay-end head) :to-be 5)
+        (expect (overlay-get head 'invisible) :to-equal 'occult))))
+
+  (it "evaporates the head overlay with not leading whitepace"
+    (occult-test-with-buffer "Line 1\nLine 2\nLine 3\n"
+      (occult-hide-region 1 22)
+      (let* ((parent (occult--overlay-at-point))
+             (head (occult-test--head-overlay parent)))
+        (expect (overlay-buffer head) :not :to-be-truthy))))
+
+  (it "shows indicator in head before-string with leading whitespace"
+    (occult-test-with-buffer " \t\r\nLine 1\nLine 2\nLine 3\n"
+      (occult-hide-region 1 26)
+      (let* ((parent (occult--overlay-at-point))
+             (head (occult-test--head-overlay parent)))
+        (expect (overlay-get parent 'before-string) :not :to-be-truthy)
+        (expect (overlay-get head 'before-string) :to-match "📎")))))
 
 ;;; Toggle
 

@@ -163,6 +163,14 @@ characters from BEG, whichever comes first."
     (goto-char beg)
     (min (line-end-position) end (+ beg occult-summary-max-length))))
 
+(defun occult--leading-whitespace (beg end)
+  (save-excursion
+    (goto-char beg)
+    (while (and (looking-at-p "[ \t\n\r]")
+                (< (point) end))
+      (forward-char 1))
+    (point)))
+
 (defun occult--content-hash (beg end)
   "Compute a SHA-256 hash of buffer text between BEG and END."
   (secure-hash 'sha256 (buffer-substring-no-properties beg end)))
@@ -174,22 +182,33 @@ characters from BEG, whichever comes first."
 The first line (up to `occult-summary-max-length' chars) stays visible
 and navigable.  The remainder is hidden via a body overlay.
 Returns the parent overlay."
-  (let* ((split (occult--visible-end beg end))
-         (body-text (buffer-substring-no-properties split end))
+  (let* ((head-split (occult--leading-whitespace beg end))
+         (body-split (occult--visible-end head-split end))
+         (body-text (buffer-substring-no-properties body-split end))
          (indicator (propertize occult-indicator 'face 'occult-indicator))
          (ellipsis (concat (propertize occult-ellipsis 'face 'occult-summary)
                            (if (string-match-p "\n" body-text) "\n" "")))
          (parent (make-overlay beg end nil t nil))
-         (body (make-overlay split end nil t nil)))
+         (head (make-overlay beg head-split nil t nil))
+         (body (make-overlay body-split end nil t nil)))
+    ;; Put indicator on the front most overlay, head will disapear if its empty
+    (overlay-put (if (= beg head-split) parent head)
+                 'before-string
+                 indicator)
+
     ;; Parent overlay - spans the whole fold, provides keymap and ID
     (overlay-put parent 'occult t)
     (overlay-put parent 'occult-body body)
+    (overlay-put parent 'occult-head head)
     (overlay-put parent 'face 'occult-summary)
-    (overlay-put parent 'before-string indicator)
     (overlay-put parent 'keymap occult-overlay-map)
     (overlay-put parent 'help-echo "Press TAB to expand")
     (overlay-put parent 'evaporate t)
     (overlay-put parent 'modification-hooks (list #'occult--modification-hook))
+    ;; Head overlay - hides leading whitespace and newlines before the visible portion
+    (overlay-put head 'occult-parent parent)
+    (overlay-put head 'invisible 'occult)
+    (overlay-put head 'evaporate t)
     ;; Body overlay - hides everything after the visible portion
     (overlay-put body 'occult-parent parent)
     (overlay-put body 'invisible 'occult)
@@ -204,9 +223,12 @@ Returns the parent overlay."
 (defun occult--delete-fold (ov)
   "Delete fold OV and its associated body overlay."
   (when (and ov (overlay-buffer ov))
-    (when-let ((body (overlay-get ov 'occult-body)))
+    (when-let ((body (overlay-get ov 'occult-body))
+               (head (overlay-get ov 'occult-head)))
       (when (overlay-buffer body)
-        (delete-overlay body)))
+        (delete-overlay body))
+      (when (overlay-buffer head)
+        (delete-overlay head)))
     (delete-overlay ov)))
 
 (defun occult--remove-overlay (ov)
