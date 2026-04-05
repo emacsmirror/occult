@@ -3,6 +3,11 @@
 
 Changes to the project, following Keep a Changelog conventions.
 
+* [1.0.0] - 2026-04-05
+
+** Added
+- Region is restored after expanding an individual fold via ~occult-toggle~. The mark and point snap back to the fold's original boundaries on expand. ~occult-reveal-all~ is unaffected.
+
 * [0.1.0] - 2026-03-25
 
 ** Added

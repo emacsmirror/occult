@@ -349,13 +349,20 @@ Refuses if the region is empty, blank, or overlaps an existing fold."
   "Toggle an occult fold at point or on the active region.
 
 With an active region, collapse it into a summary line.
-With point on an existing fold (no region), expand it.
+With point on an existing fold (no region), expand it and
+reactivate the region at the fold's original boundaries.
 Otherwise, do nothing."
   (interactive)
   (if (use-region-p)
       (occult-hide-region (region-beginning) (region-end))
     (if-let ((ov (occult--overlay-at-point)))
-        (occult--remove-overlay ov)
+        (let ((beg (overlay-start ov))
+              (end (overlay-end ov)))
+          (occult--remove-overlay ov)
+          (when (and beg end)
+            (goto-char end)
+            (set-mark beg)
+            (activate-mark)))
       (user-error "No region selected and no occult fold at point"))))
 
 ;;;###autoload

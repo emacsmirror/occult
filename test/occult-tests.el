@@ -133,6 +133,49 @@
       (goto-char 1)
       (expect (occult-toggle) :to-throw 'user-error))))
 
+;;; Toggle region restore
+
+(describe "occult-toggle region restore"
+  (it "activates region after expanding a fold"
+    (occult-test-with-buffer "Line 1\nLine 2\n"
+      (occult-hide-region 1 15)
+      (goto-char 1)
+      (occult-toggle)
+      (expect (region-active-p) :to-be-truthy)))
+
+  (it "restored region matches original fold boundaries"
+    (occult-test-with-buffer "Line 1\nLine 2\n"
+      (occult-hide-region 1 15)
+      (goto-char 1)
+      (occult-toggle)
+      (expect (region-beginning) :to-equal 1)
+      (expect (region-end) :to-equal 15)))
+
+  (it "places point at end and mark at beg"
+    (occult-test-with-buffer "Line 1\nLine 2\n"
+      (occult-hide-region 1 15)
+      (goto-char 1)
+      (occult-toggle)
+      (expect (point) :to-equal 15)
+      (expect (mark) :to-equal 1)))
+
+  (it "overrides a pre-existing deactivated mark elsewhere"
+    (occult-test-with-buffer "Line 1\nLine 2\nLine 3\n"
+      (push-mark 20 t nil)
+      (occult-hide-region 1 8)
+      (goto-char 1)
+      (occult-toggle)
+      (expect (region-beginning) :to-equal 1)
+      (expect (region-end) :to-equal 8)
+      (expect (region-active-p) :to-be-truthy)))
+
+  (it "does not activate region after occult-reveal-all"
+    (occult-test-with-buffer "Line 1\nLine 2\n"
+      (occult-hide-region 1 15)
+      (goto-char 1)
+      (occult-reveal-all)
+      (expect (region-active-p) :not :to-be-truthy))))
+
 ;;; Reveal all
 
 (describe "occult-reveal-all"
