@@ -164,6 +164,8 @@ characters from BEG, whichever comes first."
     (min (line-end-position) end (+ beg occult-summary-max-length))))
 
 (defun occult--leading-whitespace (beg end)
+  "Return the position where non-whitespace characters begins between BEG..END.
+If the region contains only whitespace symbols, it returns END."
   (save-excursion
     (goto-char beg)
     (while (and (looking-at-p "[ \t\n\r]")
@@ -191,7 +193,7 @@ Returns the parent overlay."
          (parent (make-overlay beg end nil t nil))
          (head (make-overlay beg head-split nil t nil))
          (body (make-overlay body-split end nil t nil)))
-    ;; Put indicator on the front most overlay, head will disapear if its empty
+    ;; Put indicator on the front most overlay, head will disappear if its empty
     (overlay-put (if (= beg head-split) parent head)
                  'before-string
                  indicator)
@@ -223,10 +225,10 @@ Returns the parent overlay."
 (defun occult--delete-fold (ov)
   "Delete fold OV and its associated body overlay."
   (when (and ov (overlay-buffer ov))
-    (when-let ((body (overlay-get ov 'occult-body))
-               (head (overlay-get ov 'occult-head)))
+    (when-let ((body (overlay-get ov 'occult-body)))
       (when (overlay-buffer body)
-        (delete-overlay body))
+        (delete-overlay body)))
+    (when-let ((head (overlay-get ov 'occult-head)))
       (when (overlay-buffer head)
         (delete-overlay head)))
     (delete-overlay ov)))

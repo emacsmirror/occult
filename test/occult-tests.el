@@ -49,10 +49,10 @@
       (expect (occult--visible-end 1 3) :to-equal 3))))
 
 
-;;; Trim leading whitepace
+;;; Trim leading whitespace
 
 (describe "occult--leading-whitespace"
-  (it "does nothing for not leading whitespace"
+  (it "does nothing for no leading whitespace"
     (occult-test-with-buffer "line with 17 char"
       (expect (occult--leading-whitespace 1 18) :to-be 1)))
 
@@ -60,7 +60,7 @@
     (occult-test-with-buffer " \n\r\tline with 21 char"
       (expect (occult--leading-whitespace 1 22) :to-be 5)))
 
-  (it "gived END when there is only whitespace"
+  (it "gives END when there is only whitespace"
     (occult-test-with-buffer " \n\r\t"
       (expect (occult--leading-whitespace 1 5) :to-be 5))))
 
