@@ -156,21 +156,33 @@ List of (BEG END CONTENT-HASH) tuples.")
    (overlays-at (point))))
 
 (defun occult--visible-end (beg end)
-  "Return the position where visible text ends for a fold at BEG..END.
-Capped at the end of the first line or `occult-summary-max-length'
-characters from BEG, whichever comes first."
+  "Return the position where the visible summary line ends.
+BEG is the start of the visible content of the fold - i.e. the
+first non-whitespace position, as returned by
+`occult--leading-whitespace', not necessarily the fold's outer
+start.  END is the fold's outer end.
+
+The result is capped at the end of the line containing BEG, the
+fold END, or BEG plus `occult-summary-max-length' characters,
+whichever comes first.  This means `occult-summary-max-length'
+is measured from the first non-whitespace character of the fold,
+so leading blank lines do not consume any of the budget."
   (save-excursion
     (goto-char beg)
     (min (line-end-position) end (+ beg occult-summary-max-length))))
 
 (defun occult--leading-whitespace (beg end)
-  "Return the position where non-whitespace characters begins between BEG..END.
-If the region contains only whitespace symbols, it returns END."
+  "Return the first non-whitespace position in the range BEG..END.
+Scans ASCII whitespace (space, tab, newline, carriage return,
+form feed, vertical tab) forward from BEG, stopping at END at
+the latest.  Returns END if the range is entirely whitespace.
+
+Used by `occult--create-overlay' to skip leading blank lines
+when computing where the visible summary begins, so the summary
+is not wasted on empty leading whitespace."
   (save-excursion
     (goto-char beg)
-    (while (and (looking-at-p "[ \t\n\r]")
-                (< (point) end))
-      (forward-char 1))
+    (skip-chars-forward " \t\n\r\f\v" end)
     (point)))
 
 (defun occult--content-hash (beg end)
