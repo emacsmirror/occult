@@ -156,7 +156,21 @@
       (let* ((parent (occult--overlay-at-point))
              (head (occult-test--head-overlay parent)))
         (expect (overlay-get parent 'before-string) :not :to-be-truthy)
-        (expect (overlay-get head 'before-string) :to-match "📎")))))
+        (expect (overlay-get head 'before-string) :to-match "📎"))))
+
+  (it "measures summary-max-length from first non-whitespace position"
+    ;; With two leading newlines and cap = 3, the visible content
+    ;; starts at pos 3 and body-split lands at pos 3+3 = 6.  Before
+    ;; the leading-whitespace fix the cap was measured from beg (pos
+    ;; 1) and body-split would have been at pos 4.
+    (let ((occult-summary-max-length 3))
+      (occult-test-with-buffer "\n\nHello World\n"
+        (occult-hide-region 1 15)
+        (let* ((parent (occult--overlay-at-point))
+               (body (occult-test--body-overlay parent))
+               (head (occult-test--head-overlay parent)))
+          (expect (overlay-end head) :to-equal 3)
+          (expect (overlay-start body) :to-equal 6))))))
 
 ;;; Toggle
 
@@ -697,6 +711,44 @@ The edit buffer and base buffer are cleaned up at the end."
               ;; base buffer should be visible again in the sole window
               (expect (window-buffer) :to-equal base)))
         (when (buffer-live-p base) (kill-buffer base))))))
+
+(describe "occult with leading whitespace"
+  (it "cleans up head overlay inside the indirect edit buffer"
+    (occult-test-with-edit-session "\n\nLine 1\nLine 2\nLine 3\n" 1 24
+      (let ((occult-ovs
+             (cl-remove-if-not
+              (lambda (ov)
+                (or (overlay-get ov 'occult)
+                    (overlay-get ov 'occult-parent)))
+              (overlays-in (point-min) (point-max)))))
+        (expect (length occult-ovs) :to-equal 0))))
+
+  (it "keeps head overlay alive in the base buffer during edit session"
+    (occult-test-with-edit-session "\n\nLine 1\nLine 2\nLine 3\n" 1 24
+      (with-current-buffer (buffer-base-buffer)
+        (let* ((parent (cl-find-if (lambda (ov) (overlay-get ov 'occult))
+                                   (overlays-in (point-min) (point-max))))
+               (head (overlay-get parent 'occult-head)))
+          (expect head :to-be-truthy)
+          (expect (overlay-buffer head) :to-be-truthy)
+          (expect (overlay-end head) :to-equal 3)
+          (expect (overlay-get head 'before-string) :to-match "📎")))))
+
+  (it "restores head overlay after revert-buffer round-trip"
+    (occult-test-with-buffer "\n\nHello world\n"
+      (occult-hide-region 1 15)
+      (occult--save-overlays)
+      (dolist (ov (overlays-in (point-min) (point-max)))
+        (delete-overlay ov))
+      (expect (occult-test--fold-count) :to-equal 0)
+      (occult--restore-overlays)
+      (expect (occult-test--fold-count) :to-equal 1)
+      (let* ((parent (cl-find-if (lambda (ov) (overlay-get ov 'occult))
+                                 (overlays-in (point-min) (point-max))))
+             (head (overlay-get parent 'occult-head)))
+        (expect head :to-be-truthy)
+        (expect (overlay-end head) :to-equal 3)
+        (expect (overlay-get head 'before-string) :to-match "📎")))))
 
 (provide 'occult-tests)
 
