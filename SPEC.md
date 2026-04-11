@@ -17,18 +17,31 @@ to visually collapse any selected region, with the guarantee that:
 
 ## Core Mechanism
 
-Each fold is backed by a pair of overlays: a parent covering the entire region
-and a body covering the hidden suffix. The first line of the region remains
-live, navigable buffer text.
+Each fold is backed by three overlays: a parent covering the entire region,
+a head covering any leading whitespace, and a body covering the hidden
+suffix. The first non-whitespace line of the region remains live, navigable
+buffer text.
 
-- Parent overlay spans `[beg, end)` and carries the indicator glyph as
-  `before-string`, an interaction keymap, a face, and `modification-hooks`.
-- Body overlay spans `[split, end)` where `split` is the first-line break (or
-  `beg + occult-summary-max-length`, whichever comes first). It carries
-  `invisible 'occult` and prepends the ellipsis via `before-string`.
-- The two overlays are linked via `occult-body` / `occult-parent` properties.
+- Parent overlay spans `[beg, end)` and carries an interaction keymap, a
+  face, and `modification-hooks`. It is non-evaporating so that an edit
+  cannot drop the parent before the modification-hook gets a chance to
+  clean up head and body.
+- Head overlay spans `[beg, head-split)` where `head-split` is the first
+  non-whitespace position in the region. It carries the indicator glyph as
+  `before-string` and `invisible 'occult`. The head is always created,
+  even as a zero-length overlay at `beg` when there is no leading
+  whitespace; this gives the indicator a single, uniform host regardless
+  of input shape.
+- Body overlay spans `[body-split, end)` where `body-split` is the first
+  line break after `head-split`, the fold end, or
+  `head-split + occult-summary-max-length` characters from `head-split`,
+  whichever comes first. It carries `invisible 'occult` and prepends the
+  ellipsis via `before-string`.
+- The three overlays are linked: parent references body and head via
+  `occult-body` / `occult-head`; head and body reference parent via
+  `occult-parent`.
 - `buffer-invisibility-spec` includes `'occult` whenever the internal mode is
-  active, so the body text is hidden from display.
+  active, so the head and body text is hidden from display.
 - `buffer-string` / `buffer-substring-no-properties` return the full original
   text regardless of overlay state - this is what LLM packages, org-export, and
   copy/kill use.
@@ -154,22 +167,44 @@ line.
 
 ## Overlay Properties
 
-Folds use two overlays.
+Folds use three overlays: parent, head, and body.
 
 ### Parent overlay
+
+Spans `[beg, end)`. Owns the face, keymap, and modification-hook.
 
 | Property             | Value                                                  |
 |----------------------|--------------------------------------------------------|
 | `occult`             | `t` (marker for finding our overlays)                  |
 | `occult-body`        | Reference to the body overlay                          |
+| `occult-head`        | Reference to the head overlay                          |
 | `face`               | `occult-summary`                                       |
-| `before-string`      | Indicator string                                       |
 | `keymap`             | TAB/mouse-1 toggle the fold; `e` opens it for editing  |
 | `help-echo`          | "Press TAB to expand"                                  |
-| `evaporate`          | `t`                                                    |
+| `evaporate`          | `nil`                                                  |
 | `modification-hooks` | Remove the fold if underlying text is edited           |
 
+Parent no longer carries `before-string`; the indicator lives on the head
+overlay so that its placement is uniform regardless of leading whitespace.
+Parent is non-evaporating so an edit cannot drop it before the
+modification-hook runs and cleans up head and body.
+
+### Head overlay
+
+Spans `[beg, head-split)`. Always created, even as a zero-length overlay
+at `beg` when there is no leading whitespace, so that the indicator has a
+single, uniform host.
+
+| Property          | Value                                |
+|-------------------|--------------------------------------|
+| `occult-parent`   | Back-reference to parent overlay     |
+| `invisible`       | `'occult`                            |
+| `before-string`   | Indicator string                     |
+| `evaporate`       | `nil`                                |
+
 ### Body overlay
+
+Spans `[body-split, end)`. Hides the tail of the fold.
 
 | Property                             | Value                              |
 |--------------------------------------|------------------------------------|
@@ -183,19 +218,29 @@ Folds use two overlays.
 ## Summary Line Format
 
 ```
-📎 First line of the region...
+📎 First non-whitespace line of the region...
 ```
 
-The visible portion of a folded region is live buffer text from `beg` up to
-`split`, where `split = min(line-end, end, beg + occult-summary-max-length)`.
-The body overlay takes over from `split` and prepends `occult-ellipsis` via
-its `before-string`.
+The visible portion of a folded region is live buffer text between
+`head-split` and `body-split`:
+
+- `head-split` = first non-whitespace position in the region (leading
+  blank lines and other ASCII whitespace are hidden by the head overlay)
+- `body-split = min(line-end-from-head-split, end, head-split + occult-summary-max-length)`
+
+The head overlay hides `[beg, head-split)` and prepends the indicator via
+its `before-string`. The body overlay hides `[body-split, end)` and
+prepends `occult-ellipsis` via its `before-string`.
+
+`occult-summary-max-length` is measured from `head-split`, not from the
+region start, so leading whitespace does not consume any of the summary
+budget.
 
 - Indicator: customizable via `occult-indicator`, default `"📎 "`
 - Ellipsis: customizable via `occult-ellipsis`, default `"..."`
 - Max length: customizable via `occult-summary-max-length`, default `80`
-- The first line is not synthesized or copied - it is the actual underlying
-  buffer text, navigable and selectable.
+- The visible summary is not synthesized or copied - it is the actual
+  underlying buffer text, navigable and selectable.
 
 ## Faces
 
