@@ -91,11 +91,13 @@
         ;; Body starts after first line, not at fold start
         (expect (overlay-start body) :to-be-greater-than 1))))
 
-  (it "shows indicator in parent before-string"
+  (it "shows indicator in head before-string"
     (occult-test-with-buffer "Hello\nWorld\n"
       (occult-hide-region 1 13)
-      (let ((parent (occult--overlay-at-point)))
-        (expect (overlay-get parent 'before-string) :to-match "📎"))))
+      (let* ((parent (occult--overlay-at-point))
+             (head (occult-test--head-overlay parent)))
+        (expect (overlay-get head 'before-string) :to-match "📎")
+        (expect (overlay-get parent 'before-string) :not :to-be-truthy))))
 
   (it "shows ellipsis in body before-string"
     (occult-test-with-buffer "Hello\nWorld\n"
@@ -137,12 +139,16 @@
         (expect (overlay-end head) :to-be 5)
         (expect (overlay-get head 'invisible) :to-equal 'occult))))
 
-  (it "evaporates the head overlay with not leading whitepace"
+  (it "creates a zero-length head overlay when there is no leading whitespace"
     (occult-test-with-buffer "Line 1\nLine 2\nLine 3\n"
       (occult-hide-region 1 22)
       (let* ((parent (occult--overlay-at-point))
              (head (occult-test--head-overlay parent)))
-        (expect (overlay-buffer head) :not :to-be-truthy))))
+        (expect head :to-be-truthy)
+        (expect (overlay-buffer head) :to-be-truthy)
+        (expect (overlay-start head) :to-equal 1)
+        (expect (overlay-end head) :to-equal 1)
+        (expect (overlay-get head 'before-string) :to-match "📎"))))
 
   (it "shows indicator in head before-string with leading whitespace"
     (occult-test-with-buffer " \t\r\nLine 1\nLine 2\nLine 3\n"
