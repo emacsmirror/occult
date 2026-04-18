@@ -156,12 +156,34 @@ List of (BEG END CONTENT-HASH) tuples.")
    (overlays-at (point))))
 
 (defun occult--visible-end (beg end)
-  "Return the position where visible text ends for a fold at BEG..END.
-Capped at the end of the first line or `occult-summary-max-length'
-characters from BEG, whichever comes first."
+  "Return the position where the visible summary line ends.
+BEG is the start of the visible content of the fold - i.e. the
+first non-whitespace position, as returned by
+`occult--leading-whitespace', not necessarily the fold's outer
+start.  END is the fold's outer end.
+
+The result is capped at the end of the line containing BEG, the
+fold END, or BEG plus `occult-summary-max-length' characters,
+whichever comes first.  This means `occult-summary-max-length'
+is measured from the first non-whitespace character of the fold,
+so leading blank lines do not consume any of the budget."
   (save-excursion
     (goto-char beg)
     (min (line-end-position) end (+ beg occult-summary-max-length))))
+
+(defun occult--leading-whitespace (beg end)
+  "Return the first non-whitespace position in the range BEG..END.
+Scans ASCII whitespace (space, tab, newline, carriage return,
+form feed, vertical tab) forward from BEG, stopping at END at
+the latest.  Returns END if the range is entirely whitespace.
+
+Used by `occult--create-overlay' to skip leading blank lines
+when computing where the visible summary begins, so the summary
+is not wasted on empty leading whitespace."
+  (save-excursion
+    (goto-char beg)
+    (skip-chars-forward " \t\n\r\f\v" end)
+    (point)))
 
 (defun occult--content-hash (beg end)
   "Compute a SHA-256 hash of buffer text between BEG and END."
@@ -171,26 +193,51 @@ characters from BEG, whichever comes first."
 
 (defun occult--create-overlay (beg end)
   "Create an occult fold spanning BEG to END.
-The first line (up to `occult-summary-max-length' chars) stays visible
-and navigable.  The remainder is hidden via a body overlay.
+The fold is backed by three overlays: a head overlay over any
+leading whitespace that carries the indicator `before-string', a
+body overlay over the hidden tail that carries the ellipsis
+`before-string', and a parent overlay spanning the whole region
+that owns the face, keymap, and modification-hook.
+
+The head overlay is always created, even when there is no leading
+whitespace to hide; in that case it is a zero-length overlay at
+BEG.  Keeping the indicator on a single overlay (head) gives a
+uniform rendering rule and avoids the ordering ambiguity that
+arises when two overlays starting at the same position both
+carry a `before-string'.
+
 Returns the parent overlay."
-  (let* ((split (occult--visible-end beg end))
-         (body-text (buffer-substring-no-properties split end))
+  (let* ((head-split (occult--leading-whitespace beg end))
+         (body-split (occult--visible-end head-split end))
+         (body-text (buffer-substring-no-properties body-split end))
          (indicator (propertize occult-indicator 'face 'occult-indicator))
          (ellipsis (concat (propertize occult-ellipsis 'face 'occult-summary)
                            (if (string-match-p "\n" body-text) "\n" "")))
          (parent (make-overlay beg end nil t nil))
-         (body (make-overlay split end nil t nil)))
-    ;; Parent overlay - spans the whole fold, provides keymap and ID
+         (head (make-overlay beg head-split nil t nil))
+         (body (make-overlay body-split end nil t nil)))
+    ;; Parent overlay - spans the whole fold and owns the face, keymap,
+    ;; and modification-hook.  Non-evaporating so that an edit which
+    ;; collapses the region does not drop the parent before the
+    ;; modification-hook has a chance to clean up head and body.
     (overlay-put parent 'occult t)
     (overlay-put parent 'occult-body body)
+    (overlay-put parent 'occult-head head)
     (overlay-put parent 'face 'occult-summary)
-    (overlay-put parent 'before-string indicator)
     (overlay-put parent 'keymap occult-overlay-map)
     (overlay-put parent 'help-echo "Press TAB to expand")
-    (overlay-put parent 'evaporate t)
+    (overlay-put parent 'evaporate nil)
     (overlay-put parent 'modification-hooks (list #'occult--modification-hook))
-    ;; Body overlay - hides everything after the visible portion
+    ;; Head overlay - always present (zero-length when no leading
+    ;; whitespace) so that the indicator has a single, uniform home.
+    ;; `invisible 'occult' hides any leading whitespace it covers;
+    ;; on a zero-length head it is a no-op but harmless.
+    (overlay-put head 'occult-parent parent)
+    (overlay-put head 'before-string indicator)
+    (overlay-put head 'invisible 'occult)
+    (overlay-put head 'evaporate nil)
+    ;; Body overlay - hides everything after the visible portion and
+    ;; is the primary surface for isearch reveal.
     (overlay-put body 'occult-parent parent)
     (overlay-put body 'invisible 'occult)
     (overlay-put body 'before-string ellipsis)
@@ -207,6 +254,9 @@ Returns the parent overlay."
     (when-let ((body (overlay-get ov 'occult-body)))
       (when (overlay-buffer body)
         (delete-overlay body)))
+    (when-let ((head (overlay-get ov 'occult-head)))
+      (when (overlay-buffer head)
+        (delete-overlay head)))
     (delete-overlay ov)))
 
 (defun occult--remove-overlay (ov)

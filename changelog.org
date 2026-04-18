@@ -3,6 +3,17 @@
 
 Changes to the project, following Keep a Changelog conventions.
 
+* [1.2.0] - 2026-04-11
+
+** Fixed
+- Folding a region that begins with blank lines no longer collapses the summary to just the ellipsis. A new head overlay hides the leading whitespace so the summary shows the first non-whitespace line.
+
+** Changed
+- ~occult-summary-max-length~ is now measured from the first non-whitespace position of the region rather than the region start. Leading blank lines no longer consume any of the summary budget.
+- Fold overlay structure is now three overlays: parent, head, and body. The indicator ~before-string~ lives on the head overlay so its placement is uniform regardless of leading whitespace. Parent and head are non-evaporating so a region edit cannot drop them before the modification-hook cleans up.
+
+Investigated and initially prototyped by @ImFstAsFckBoi in PR #2.
+
 * [1.1.0] - 2026-04-05
 
 ** Added
