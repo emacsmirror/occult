@@ -425,15 +425,19 @@ are created and deactivates when the last fold is removed."
 ;;;###autoload
 (defun occult-hide-region (beg end)
   "Collapse the region between BEG and END into a summary fold.
-Refuses if the region is empty, blank, or overlaps an existing fold."
+Existing folds overlapping the region are absorbed: their bounds
+extend the new fold so no hidden content is lost.  Empty or blank
+regions are silently refused."
   (when (and beg end (< beg end)
              (not (string-blank-p
                    (buffer-substring-no-properties beg end))))
-    (if (occult--overlays-in beg end)
-        (user-error "Region overlaps an existing occult fold")
-      (occult--create-overlay beg end)
-      (deactivate-mark)
-      t)))
+    (dolist (ov (occult--overlays-in beg end))
+      (setq beg (min beg (overlay-start ov))
+            end (max end (overlay-end ov)))
+      (occult--delete-fold ov))
+    (occult--create-overlay beg end)
+    (deactivate-mark)
+    t))
 
 ;;;###autoload
 (defun occult-toggle ()

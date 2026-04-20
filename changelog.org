@@ -3,6 +3,11 @@
 
 Changes to the project, following Keep a Changelog conventions.
 
+* [1.3.0] - 2026-04-20
+
+** Changed
+- ~occult-hide-region~ now absorbs any existing folds overlapping the region instead of signaling ~user-error~. Bounds of touched folds extend the new fold so no hidden content is lost. Selecting a region that wraps or crosses an existing fold now collapses the combined span into a single fold.
+
 * [1.2.0] - 2026-04-11
 
 ** Fixed
