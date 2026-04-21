@@ -106,11 +106,42 @@
              (body (occult-test--body-overlay parent)))
         (expect (overlay-get body 'before-string) :to-match "\\.\\.\\."))))
 
-  (it "refuses overlapping regions"
+  (it "absorbs a fully-contained overlapping fold"
+    (occult-test-with-buffer "Line 1\nLine 2\nLine 3\n"
+      (occult-hide-region 8 15)
+      (occult-hide-region 1 22)
+      (let ((ovs (occult--overlays-in (point-min) (point-max))))
+        (expect (length ovs) :to-equal 1)
+        (expect (overlay-start (car ovs)) :to-equal 1)
+        (expect (overlay-end (car ovs)) :to-equal 22))))
+
+  (it "extends the new fold's end to absorb a partial overlap"
+    (occult-test-with-buffer "Line 1\nLine 2\nLine 3\n"
+      (occult-hide-region 8 22)
+      (occult-hide-region 1 15)
+      (let ((ovs (occult--overlays-in (point-min) (point-max))))
+        (expect (length ovs) :to-equal 1)
+        (expect (overlay-start (car ovs)) :to-equal 1)
+        (expect (overlay-end (car ovs)) :to-equal 22))))
+
+  (it "extends the new fold's start to absorb a partial overlap"
     (occult-test-with-buffer "Line 1\nLine 2\nLine 3\n"
       (occult-hide-region 1 8)
-      (expect (occult-hide-region 5 15) :to-throw 'user-error)
-      (expect (occult-test--fold-count) :to-equal 1)))
+      (occult-hide-region 5 22)
+      (let ((ovs (occult--overlays-in (point-min) (point-max))))
+        (expect (length ovs) :to-equal 1)
+        (expect (overlay-start (car ovs)) :to-equal 1)
+        (expect (overlay-end (car ovs)) :to-equal 22))))
+
+  (it "absorbs multiple overlapping folds into one span"
+    (occult-test-with-buffer "Line 1\nLine 2\nLine 3\n"
+      (occult-hide-region 1 8)
+      (occult-hide-region 15 22)
+      (occult-hide-region 5 18)
+      (let ((ovs (occult--overlays-in (point-min) (point-max))))
+        (expect (length ovs) :to-equal 1)
+        (expect (overlay-start (car ovs)) :to-equal 1)
+        (expect (overlay-end (car ovs)) :to-equal 22))))
 
   (it "refuses empty regions"
     (occult-test-with-buffer "Hello\n"
@@ -182,6 +213,18 @@
       (activate-mark)
       (occult-toggle)
       (expect (occult-test--fold-count) :to-equal 1)))
+
+  (it "absorbs existing folds when called with an overlapping region"
+    (occult-test-with-buffer "Line 1\nLine 2\nLine 3\n"
+      (occult-hide-region 8 15)
+      (set-mark 1)
+      (goto-char 22)
+      (activate-mark)
+      (occult-toggle)
+      (let ((ovs (occult--overlays-in (point-min) (point-max))))
+        (expect (length ovs) :to-equal 1)
+        (expect (overlay-start (car ovs)) :to-equal 1)
+        (expect (overlay-end (car ovs)) :to-equal 22))))
 
   (it "expands fold at point - removes both overlays"
     (occult-test-with-buffer "Line 1\nLine 2\n"

@@ -73,7 +73,8 @@ Non-interactive. Programmatic entry point for creating a fold.
 - Returns `t` on success, `nil` on silent refusal (empty / whitespace-only
   region, or `beg >= end`).
 - Calls `deactivate-mark` on success.
-- Signals `user-error` if the region overlaps an existing occult fold.
+- Absorbs any existing folds overlapping the region: their bounds extend
+  the new fold so no hidden content is lost.
 
 ### `occult-edit-region`
 
@@ -306,9 +307,10 @@ lost - which is the expected behavior.
 
 ## Edge Cases
 
-- Overlapping regions: signals `user-error` ("Region overlaps an existing
-  occult fold")
-- Nested folds: same `user-error` (subsumed by the overlap check)
+- Overlapping regions: the new fold absorbs any touched folds, extending
+  its bounds outward so no hidden content is lost
+- Nested folds: not representable; a selection inside an existing fold
+  recreates that fold at its original bounds
 - Empty / whitespace-only region: silent no-op, returns `nil`
 - `beg >= end`: silent no-op, returns `nil`
 - Single-line region: works (collapses to truncated summary)
